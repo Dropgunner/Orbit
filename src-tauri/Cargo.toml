@@ -1,0 +1,28 @@
+[package]
+name = "orbit"
+version = "0.1.0"
+description = "Orbit — an agentic AI coding IDE for macOS"
+authors = ["Orbit contributors"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "orbit_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "process", "time", "io-util", "fs"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+futures-util = "0.3"
+portable-pty = "0.8"
+
+[features]
+# This feature is used for production builds where the frontend is served from disk.
+custom-protocol = ["tauri/custom-protocol"]

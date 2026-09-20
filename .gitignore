@@ -1,0 +1,26 @@
+# Node
+node_modules/
+dist/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+target/
+.cargo/
+.rustup/
+
+# Local toolchain installed into this repo for development
+.rustup/
+.cargo/
+
+# Secrets
+.env
+.env.local
+
+# Build artifacts
+*.dmg
+*.app
+
+# OS / editor noise
+.DS_Store
+*.log
