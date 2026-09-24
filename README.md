@@ -7,6 +7,8 @@ codebase and you review every change before it lands on disk.
 
 ![stack](https://img.shields.io/badge/Tauri-2-6c8cff) ![rust](https://img.shields.io/badge/Rust-stable-orange) ![ts](https://img.shields.io/badge/TypeScript-strict-3178c6)
 
+![Orbit UI](assets/ui-mockup.png)
+
 ## Features
 
 - **Agent chat** — streamed, multi-turn conversation with an
