@@ -1,3 +1,5 @@
+![Orbit](assets/social-preview.png)
+
 # Orbit
 
 Orbit is an agentic AI coding IDE for macOS, built with [Tauri 2](https://tauri.app)

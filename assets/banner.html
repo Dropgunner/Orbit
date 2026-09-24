@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Helvetica, Arial, sans-serif;
+    background: #0d1117; color: #e6edf3; position: relative;
+  }
+  .glow {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(760px 460px at 8% 12%, rgba(108,140,255,0.26), transparent 68%),
+      radial-gradient(700px 480px at 98% 100%, rgba(160,108,255,0.22), transparent 70%);
+  }
+  .grid {
+    position: absolute; inset: 0; opacity: 0.5;
+    background-image: radial-gradient(rgba(139,148,158,0.16) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.85), transparent 80%);
+  }
+  .hairline { position: absolute; left: 0; right: 0; top: 0; height: 3px;
+    background: linear-gradient(90deg, #6c8cff, #a06cff 55%, transparent); }
+
+  .left { position: absolute; left: 72px; top: 0; height: 640px; width: 552px;
+    display: flex; flex-direction: column; justify-content: center; z-index: 3; }
+  .brand { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+  .mark { width: 58px; height: 58px; }
+  .kick { font-size: 15px; letter-spacing: 4px; text-transform: uppercase; color: #6c8cff; font-weight: 700; }
+  h1 { font-size: 94px; line-height: 0.96; letter-spacing: -3.5px; font-weight: 800; }
+  .tag { margin-top: 18px; font-size: 22px; line-height: 1.42; color: #9aa4b2; max-width: 500px; }
+  .tag b { color: #d7dee8; font-weight: 600; }
+  .pills { margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap; max-width: 540px; }
+  .pill { font-size: 14px; color: #adbac7; border: 1px solid #2b3440; background: rgba(22,27,34,0.85);
+    padding: 8px 15px; border-radius: 999px; white-space: nowrap; }
+  .pill.accent { color: #8aa2ff; border-color: rgba(108,140,255,0.5); background: rgba(108,140,255,0.13); }
+
+  .window { position: absolute; right: -92px; top: 64px; width: 800px; height: 632px;
+    background: #0d1117; border: 1px solid #262e38; border-radius: 16px; overflow: hidden; z-index: 2;
+    box-shadow: 0 40px 90px rgba(0,0,0,0.62), 0 0 0 1px rgba(255,255,255,0.03); }
+  .wbar { height: 38px; display: flex; align-items: center; gap: 9px; padding: 0 16px;
+    background: #161b22; border-bottom: 1px solid #232a33; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .wtitle { margin-left: 10px; font-size: 13px; color: #6e7681; font-family: "SF Mono", Menlo, monospace; }
+  .wmodel { margin-left: auto; font-size: 12px; color: #545d68; }
+  .wbody { display: flex; height: calc(100% - 38px); }
+  .wside { width: 176px; background: #10151c; border-right: 1px solid #232a33; padding: 14px 12px; }
+  .wtabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .wtab { height: 9px; border-radius: 4px; background: #232a33; flex: 1; }
+  .wtab.on { background: #6c8cff; }
+  .wrow { height: 11px; border-radius: 3px; background: #222a34; margin-bottom: 10px; }
+  .wrow.on { background: rgba(108,140,255,0.55); }
+  .wmain { flex: 1; padding: 18px 20px; }
+  .cline { height: 11px; border-radius: 3px; margin-bottom: 12px; }
+  .c-key { background: #b06fd6; } .c-fn { background: #4f9bd9; } .c-str { background: #6fae5c; }
+  .c-com { background: #39414d; } .c-plain { background: #38414d; } .c-ty { background: #c9a25a; }
+  .diffbox { margin-top: 8px; border-top: 1px solid #232a33; padding-top: 14px; }
+  .dline { height: 10px; border-radius: 3px; margin-bottom: 9px; }
+  .d-add { background: rgba(87,171,90,0.55); } .d-del { background: rgba(244,112,103,0.5); }
+  .d-ctx { background: #2b333d; }
+
+  .wchat { width: 262px; border-left: 1px solid #232a33; background: #10151c; padding: 16px 15px; }
+  .wchat-h { font-size: 12px; color: #6e7681; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
+  .bubble { border-radius: 9px; padding: 11px 12px; margin-bottom: 11px; }
+  .b-user { background: rgba(108,140,255,0.16); border: 1px solid rgba(108,140,255,0.32); }
+  .b-asst { background: #161c24; border: 1px solid #232a33; }
+  .bl { height: 9px; border-radius: 3px; background: #54606e; margin-bottom: 8px; }
+  .b-user .bl { background: #7d93d6; } .b-asst .bl { background: #4a545f; }
+  .tool { display: flex; align-items: center; gap: 9px; border: 1px solid #2b3440; border-radius: 8px;
+    padding: 9px 11px; margin-bottom: 12px; background: #0d1117; }
+  .tool .dotmark { width: 9px; height: 9px; border-radius: 50%; background: #d19a66; }
+  .tool .tl { height: 9px; border-radius: 3px; background: #39414d; flex: 1; }
+  .review { border: 1px solid rgba(108,140,255,0.45); border-radius: 9px; background: rgba(108,140,255,0.09);
+    padding: 10px 11px; }
+  .review .rl { height: 9px; border-radius: 3px; background: #6c8cff; margin-bottom: 8px; opacity: 0.75; }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="grid"></div>
+  <div class="hairline"></div>
+
+  <div class="left">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#6c8cff"/><stop offset="1" stop-color="#a06cff"/>
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="30" fill="none" stroke="url(#ring)" stroke-width="9"/>
+        <circle cx="71" cy="29" r="8" fill="#ffb86c"/>
+      </svg>
+      <span class="kick">Agentic IDE</span>
+    </div>
+    <h1>Orbit</h1>
+    <div class="tag">The agent <b>reads, edits, and runs</b> your codebase — you review every change before it lands.</div>
+    <div class="pills">
+      <span class="pill accent">Tauri 2</span>
+      <span class="pill">Rust</span>
+      <span class="pill">TypeScript</span>
+      <span class="pill">Reviewable diffs</span>
+      <span class="pill">MIT</span>
+    </div>
+  </div>
+
+  <div class="window">
+    <div class="wbar">
+      <span class="dot" style="background:#ff5f57"></span>
+      <span class="dot" style="background:#febc2e"></span>
+      <span class="dot" style="background:#28c840"></span>
+      <span class="wtitle">agent.rs</span>
+    </div>
+    <div class="wbody">
+      <div class="wside">
+        <div class="wtabs"><div class="wtab on"></div><div class="wtab"></div></div>
+        <div class="wrow on" style="width:84%"></div>
+        <div class="wrow" style="width:62%"></div>
+        <div class="wrow" style="width:74%"></div>
+        <div class="wrow" style="width:52%"></div>
+        <div class="wrow" style="width:80%"></div>
+        <div class="wrow" style="width:58%"></div>
+        <div class="wrow" style="width:70%"></div>
+        <div class="wrow" style="width:44%"></div>
+        <div class="wrow" style="width:66%"></div>
+        <div class="wrow" style="width:78%"></div>
+        <div class="wrow" style="width:50%"></div>
+        <div class="wrow" style="width:72%"></div>
+        <div class="wrow" style="width:60%"></div>
+        <div class="wrow" style="width:82%"></div>
+        <div class="wrow" style="width:48%"></div>
+        <div class="wrow" style="width:68%"></div>
+        <div class="wrow" style="width:56%"></div>
+        <div class="wrow" style="width:76%"></div>
+        <div class="wrow" style="width:42%"></div>
+        <div class="wrow" style="width:64%"></div>
+      </div>
+      <div class="wmain">
+        <div class="cline c-com" style="width:78%"></div>
+        <div class="cline c-key" style="width:46%"></div>
+        <div class="cline c-plain" style="width:88%; margin-left:22px"></div>
+        <div class="cline c-ty" style="width:70%; margin-left:22px"></div>
+        <div class="cline c-fn" style="width:60%; margin-left:22px"></div>
+        <div class="cline c-plain" style="width:82%"></div>
+        <div class="cline c-key" style="width:38%; margin-left:22px"></div>
+        <div class="cline c-str" style="width:64%; margin-left:44px"></div>
+        <div class="cline c-fn" style="width:72%"></div>
+        <div class="cline c-plain" style="width:86%"></div>
+        <div class="cline c-key" style="width:34%; margin-left:22px"></div>
+        <div class="cline c-ty" style="width:58%; margin-left:44px"></div>
+        <div class="cline c-plain" style="width:76%"></div>
+        <div class="cline c-fn" style="width:66%"></div>
+        <div class="diffbox">
+          <div class="dline d-ctx" style="width:74%"></div>
+          <div class="dline d-del" style="width:58%"></div>
+          <div class="dline d-add" style="width:80%"></div>
+          <div class="dline d-add" style="width:66%"></div>
+          <div class="dline d-ctx" style="width:52%"></div>
+        </div>
+      </div>
+      <div class="wchat">
+        <div class="wchat-h">Agent</div>
+        <div class="bubble b-user"><div class="bl" style="width:92%"></div><div class="bl" style="width:64%; margin-bottom:0"></div></div>
+        <div class="tool"><span class="dotmark"></span><span class="tl" style="max-width:118px"></span></div>
+        <div class="bubble b-asst">
+          <div class="bl" style="width:96%"></div>
+          <div class="bl" style="width:88%"></div>
+          <div class="bl" style="width:70%"></div>
+          <div class="bl" style="width:46%; margin-bottom:0"></div>
+        </div>
+        <div class="review">
+          <div class="rl" style="width:64%"></div>
+          <div class="rl" style="width:44%; margin-bottom:0"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
