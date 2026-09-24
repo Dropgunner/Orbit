@@ -120,10 +120,11 @@ where
     };
 
     let client = reqwest::Client::new();
-    let response = client
-        .post(&url)
-        .bearer_auth(&config.api_key)
-        .json(&request)
+    let mut builder = client.post(&url).json(&request);
+    if !config.api_key.is_empty() {
+        builder = builder.bearer_auth(&config.api_key);
+    }
+    let response = builder
         .send()
         .await
         .map_err(|e| format!("request failed: {e}"))?;

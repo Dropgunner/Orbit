@@ -56,12 +56,13 @@ export default function SettingsModal() {
             type="password"
             value={form.api_key ?? ""}
             onChange={(e) => update("api_key", e.target.value || null)}
-            placeholder="ORBIT_API_KEY / DEEPSEEK_API_KEY"
+            placeholder="sk-… (leave empty for local Ollama)"
           />
         </label>
         <p className="modal-hint">
-          The API key is stored in the app config directory. You can also set
-          ORBIT_API_KEY or DEEPSEEK_API_KEY in your environment.
+          DeepSeek/OpenAI needs an API key (stored in the app config dir, or set
+          ORBIT_API_KEY / DEEPSEEK_API_KEY). For a local model, set Base URL to
+          http://localhost:11434/v1 and leave the key empty (Ollama).
         </p>
         <div className="modal-actions">
           <button onClick={() => setSettingsOpen(false)}>Cancel</button>

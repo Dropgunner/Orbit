@@ -13,15 +13,26 @@ use crate::types::{ChatMessage, PendingEdit};
 
 fn model_config(app: &AppHandle) -> Result<ModelConfig, String> {
     let settings = crate::commands::config::resolve(app)?;
-    let api_key = settings.api_key.ok_or_else(|| {
-        "No API key configured. Set ORBIT_API_KEY (or DEEPSEEK_API_KEY), or add one in Settings.".to_string()
-    })?;
+    let api_key = settings.api_key.unwrap_or_default();
+    if api_key.is_empty() && !is_local_endpoint(&settings.base_url) {
+        return Err(
+            "No API key configured. Set ORBIT_API_KEY (or DEEPSEEK_API_KEY), or point the Base URL at a local Ollama server (http://localhost:11434/v1) to run without a key.".to_string(),
+        );
+    }
     Ok(ModelConfig {
         base_url: settings.base_url,
         api_key,
         model: settings.model,
         temperature: settings.temperature,
     })
+}
+
+/// Local model servers (Ollama) need no API key.
+fn is_local_endpoint(base_url: &str) -> bool {
+    base_url.contains("localhost")
+        || base_url.contains("127.0.0.1")
+        || base_url.contains("0.0.0.0")
+        || base_url.contains(":11434")
 }
 
 /// Starts an agent run and returns its run id. Progress is streamed over the

@@ -84,6 +84,25 @@ The API key entered in Settings is stored in the app config directory
 (`~/Library/Application Support/com.orbit.ide/`). Prefer the environment
 variable if you do not want the key on disk.
 
+## Local model (Ollama — no key required)
+
+You can run the agent entirely on your Mac with Ollama (https://ollama.com),
+so no cloud API key is needed:
+
+    brew install ollama        # or download from ollama.com
+    ollama serve               # starts on http://localhost:11434
+    ollama pull qwen2.5-coder:7b
+
+Then in Settings set Base URL to http://localhost:11434/v1 and Model to
+qwen2.5-coder:7b, and leave the API Key empty. Equivalent environment
+variables:
+
+    export ORBIT_BASE_URL=http://localhost:11434/v1
+    export ORBIT_MODEL=qwen2.5-coder:7b
+
+Orbit treats any base URL on localhost (or port 11434) as a local endpoint
+and does not require a key for it.
+
 ## GitHub Actions
 
 On every push, pull request, and `v*` tag, the
