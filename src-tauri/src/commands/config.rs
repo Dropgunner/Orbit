@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 use tauri::{AppHandle, Manager};
 
-use crate::types::Settings;
+use crate::types::{Settings, SettingsView};
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app
@@ -55,6 +55,18 @@ pub(crate) fn resolve(app: &AppHandle) -> Result<Settings, String> {
     if let Some(key) = env_override("ORBIT_API_KEY").or_else(|| env_override("DEEPSEEK_API_KEY")) {
         settings.api_key = Some(key);
     }
+    if let Some(key) = env_override("TYPESAFE_API_KEY") {
+        settings.typesafe_api_key = Some(key);
+    }
+    if let Some(base_url) = env_override("TYPESAFE_BASE_URL") {
+        settings.typesafe_base_url = base_url;
+    }
+    if let Some(model) = env_override("TYPESAFE_MODEL") {
+        settings.typesafe_model = model;
+    }
+    if let Some(token) = env_override("DISCORD_TOKEN") {
+        settings.discord_token = Some(token);
+    }
 
     Ok(settings)
 }
@@ -75,4 +87,20 @@ pub fn set_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
 #[tauri::command]
 pub fn resolve_settings(app: AppHandle) -> Result<Settings, String> {
     resolve(&app)
+}
+
+/// The effective settings with every secret removed, for the local web bridge.
+/// The bridge is reachable by anything holding the per-run token, so it must
+/// never be able to read an API key or the Discord token back out.
+pub(crate) fn resolve_redacted(app: &AppHandle) -> Result<SettingsView, String> {
+    Ok(SettingsView::from(&resolve(app)?))
+}
+
+/// Persist settings sent from the bridge, keeping secrets it was never shown.
+pub(crate) fn set_settings_preserving_secrets(
+    app: &AppHandle,
+    incoming: Settings,
+) -> Result<(), String> {
+    let existing = read_settings_file(app);
+    write_settings_file(app, &incoming.preserving_secrets(&existing))
 }

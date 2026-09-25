@@ -1,17 +1,21 @@
-//! Tauri commands that expose the agent and its reviewable edit workflow.
+//! Tauri commands that expose the agent, its reviewable edit workflow, and the
+//! self-hosting status of the current workspace.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 
-use crate::agent;
+use crate::agent::{self, AgentRequest};
 use crate::model::ModelConfig;
+use crate::selfhost::{self, SelfHost};
 use crate::state::AppState;
 use crate::types::{ChatMessage, PendingEdit};
 
-fn model_config(app: &AppHandle) -> Result<ModelConfig, String> {
+/// Builds the model connection settings, or the reason they are unusable.
+pub(crate) fn model_config(app: &AppHandle) -> Result<ModelConfig, String> {
     let settings = crate::commands::config::resolve(app)?;
     let api_key = settings.api_key.unwrap_or_default();
     if api_key.is_empty() && !is_local_endpoint(&settings.base_url) {
@@ -33,6 +37,71 @@ fn is_local_endpoint(base_url: &str) -> bool {
         || base_url.contains("127.0.0.1")
         || base_url.contains("0.0.0.0")
         || base_url.contains(":11434")
+}
+
+/// Detects whether a workspace is the Orbit repository itself.
+pub(crate) fn detect_selfhost(workspace: &str) -> Option<SelfHost> {
+    if workspace.trim().is_empty() {
+        return None;
+    }
+    selfhost::detect(Path::new(workspace))
+}
+
+/// A named verification command, mirrored in `ipc/contract.ts`.
+#[derive(Debug, Clone, Serialize)]
+pub struct VerifyStep {
+    pub label: String,
+    pub command: String,
+}
+
+/// What the UI needs to know about the current workspace.
+#[derive(Debug, Clone, Serialize)]
+pub struct WorkspaceMode {
+    /// True when the agent is pointed at the repository that builds Orbit.
+    pub self_hosting: bool,
+    /// Project name when self-hosting.
+    pub project: Option<String>,
+    /// The checks that prove a change is good.
+    pub verify_commands: Vec<VerifyStep>,
+    /// True when the Node/TypeScript profiler CLI lives here too.
+    pub has_profiler_cli: bool,
+    /// True when the Harness plugin bundle lives here too.
+    pub has_plugin: bool,
+    /// A one-line message for the UI; empty when nothing notable.
+    pub note: String,
+}
+
+/// Reports whether the given workspace is the Orbit repository.
+#[tauri::command]
+pub fn workspace_mode(workspace: String) -> WorkspaceMode {
+    match detect_selfhost(&workspace) {
+        Some(host) => WorkspaceMode {
+            self_hosting: true,
+            project: Some(host.project.clone()),
+            verify_commands: host
+                .verify_commands
+                .iter()
+                .map(|step| VerifyStep {
+                    label: step.label.clone(),
+                    command: step.command.clone(),
+                })
+                .collect(),
+            has_profiler_cli: host.has_profiler_cli,
+            has_plugin: host.has_plugin,
+            note: format!(
+                "Self-hosting: the agent is pointed at the {} repository and can change this app.",
+                host.project
+            ),
+        },
+        None => WorkspaceMode {
+            self_hosting: false,
+            project: None,
+            verify_commands: Vec::new(),
+            has_profiler_cli: false,
+            has_plugin: false,
+            note: String::new(),
+        },
+    }
 }
 
 /// Starts an agent run and returns its run id. Progress is streamed over the
@@ -61,11 +130,24 @@ pub async fn chat(
             .insert(run_id.clone(), Arc::new(AtomicBool::new(false)));
     }
 
+    let selfhost = detect_selfhost(&workspace);
     let app_for_task = app.clone();
-    let workspace = PathBuf::from(workspace);
     let run_id_for_task = run_id.clone();
     tauri::async_runtime::spawn(async move {
-        agent::run_agent(app_for_task, config, run_id_for_task, history, prompt, workspace).await;
+        agent::run_agent(
+            app_for_task,
+            AgentRequest {
+                config,
+                run_id: run_id_for_task,
+                history,
+                prompt,
+                workspace: PathBuf::from(workspace),
+                selfhost,
+                auto_apply: false,
+                chained: false,
+            },
+        )
+        .await;
     });
 
     Ok(run_id)

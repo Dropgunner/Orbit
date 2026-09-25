@@ -1,5 +1,12 @@
 pub mod agent;
+pub mod browser;
+pub mod chain;
 pub mod config;
+pub mod discord;
+pub mod discord_live;
+pub mod dsh;
 pub mod fs;
 pub mod git;
+pub mod javtools;
 pub mod terminal;
+pub mod web;

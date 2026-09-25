@@ -59,10 +59,52 @@ export default function SettingsModal() {
             placeholder="sk-… (leave empty for local Ollama)"
           />
         </label>
+        <hr className="modal-sep" />
+        <h3>TypeSafe (Jev)</h3>
+        <label className="field">
+          <span>TypeSafe API Key</span>
+          <input
+            type="password"
+            value={form.typesafe_api_key ?? ""}
+            onChange={(e) => update("typesafe_api_key", e.target.value || null)}
+            placeholder="sk-… (or set TYPESAFE_API_KEY)"
+          />
+        </label>
+        <label className="field">
+          <span>TypeSafe Base URL</span>
+          <input
+            value={form.typesafe_base_url}
+            onChange={(e) => update("typesafe_base_url", e.target.value)}
+            placeholder="https://api.typesafe.ai"
+          />
+        </label>
+        <label className="field">
+          <span>TypeSafe Model</span>
+          <input
+            value={form.typesafe_model}
+            onChange={(e) => update("typesafe_model", e.target.value)}
+            placeholder="jev-latest"
+          />
+        </label>
+        <hr className="modal-sep" />
+        <h3>Discord</h3>
+        <label className="field">
+          <span>Discord token</span>
+          <input
+            type="password"
+            value={form.discord_token ?? ""}
+            onChange={(e) => update("discord_token", e.target.value || null)}
+            placeholder="paste your user token (or set DISCORD_TOKEN)"
+          />
+        </label>
         <p className="modal-hint">
           DeepSeek/OpenAI needs an API key (stored in the app config dir, or set
           ORBIT_API_KEY / DEEPSEEK_API_KEY). For a local model, set Base URL to
-          http://localhost:11434/v1 and leave the key empty (Ollama).
+          http://localhost:11434/v1 and leave the key empty (Ollama). The
+          TypeSafe key (TYPESAFE_API_KEY) powers Jev profiling, bot detection,
+          and guardrails; enable Dry run in the Discord panel to explore without one.
+          The Discord token is used for live browsing and DiscordChatExporter
+          exports — keep it private and do not share it.
         </p>
         <div className="modal-actions">
           <button onClick={() => setSettingsOpen(false)}>Cancel</button>

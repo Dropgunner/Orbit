@@ -127,6 +127,10 @@ fn tool(name: &str, description: &str, parameters: Value) -> ToolDef {
 }
 
 /// Executes a tool and returns a string result for the model.
+///
+/// When `auto_apply` is true (chained autonomous runs) file edits are written
+/// to disk immediately so the agent can build and test what it just wrote.
+/// Otherwise edits are staged for the user's review.
 pub async fn execute_tool(
     app: &AppHandle,
     state: &AppState,
@@ -134,13 +138,14 @@ pub async fn execute_tool(
     name: &str,
     args: &Value,
     workspace: &Path,
+    auto_apply: bool,
 ) -> Result<String, String> {
     match name {
         "list_directory" => list_directory(workspace, args).await,
         "read_file" => read_file(workspace, args).await,
         "search" => search(workspace, args).await,
-        "write_file" => write_file(app, state, run_id, workspace, args),
-        "edit_file" => edit_file(app, state, run_id, workspace, args),
+        "write_file" => write_file(app, state, run_id, workspace, args, auto_apply),
+        "edit_file" => edit_file(app, state, run_id, workspace, args, auto_apply),
         "run_command" => run_command(workspace, args).await,
         other => Err(format!("unknown tool: {other}")),
     }
@@ -326,7 +331,8 @@ fn stage_edit(
     before: Option<String>,
     after: String,
     description: String,
-) -> PendingEdit {
+    auto_apply: bool,
+) -> Result<PendingEdit, String> {
     let id = {
         let mut counter = state.next_edit_id.lock().unwrap();
         let id = format!("edit-{}", *counter);
@@ -341,7 +347,6 @@ fn stage_edit(
         before,
         after,
     };
-    state.pending_edits.lock().unwrap().insert(edit.id.clone(), edit.clone());
     let _ = app.emit(
         AGENT_EVENT,
         AgentEvent::PendingEdit {
@@ -349,7 +354,29 @@ fn stage_edit(
             edit: edit.clone(),
         },
     );
-    edit
+    if auto_apply {
+        // Chained runs commit as they go; the event above still gives the UI a
+        // live record of what changed.
+        apply_edit_to_disk(&edit)?;
+    } else {
+        state
+            .pending_edits
+            .lock()
+            .unwrap()
+            .insert(edit.id.clone(), edit.clone());
+    }
+    Ok(edit)
+}
+
+/// Writes a proposed change to disk for an `auto_apply` (chained) run.
+pub(crate) fn apply_edit_to_disk(edit: &PendingEdit) -> Result<(), String> {
+    let path = Path::new(&edit.path);
+    if let Some(parent) = path.parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
+        }
+    }
+    std::fs::write(path, &edit.after).map_err(|e| format!("write {}: {e}", edit.path))
 }
 
 fn write_file(
@@ -358,6 +385,7 @@ fn write_file(
     run_id: &str,
     workspace: &Path,
     args: &Value,
+    auto_apply: bool,
 ) -> Result<String, String> {
     let raw = arg_string(args, "path")?;
     let content = arg_string(args, "content")?;
@@ -372,7 +400,11 @@ fn write_file(
         before,
         content,
         format!("{kind} {}", path.display()),
-    );
+        auto_apply,
+    )?;
+    if auto_apply {
+        return Ok(format!("Applied {kind} of {}.", path.display()));
+    }
     Ok(format!(
         "Staged {} of {} for review (edit id {}). It is not written to disk until the user approves.",
         kind,
@@ -387,6 +419,7 @@ fn edit_file(
     run_id: &str,
     workspace: &Path,
     args: &Value,
+    auto_apply: bool,
 ) -> Result<String, String> {
     let raw = arg_string(args, "path")?;
     let old_string = arg_string(args, "old_string")?;
@@ -418,7 +451,11 @@ fn edit_file(
         Some(original),
         updated,
         format!("edit {}", path.display()),
-    );
+        auto_apply,
+    )?;
+    if auto_apply {
+        return Ok(format!("Applied edit to {}.", path.display()));
+    }
     Ok(format!(
         "Staged edit of {} for review (edit id {}). It is not written to disk until the user approves.",
         path.display(),
@@ -463,6 +500,69 @@ async fn run_command(workspace: &Path, args: &Value) -> Result<String, String> {
         text = format!("{}\n(exit code {code})", truncate(&text, MAX_COMMAND_CHARS));
     }
     Ok(text)
+}
+
+/// The captured result of a command run by the chain verifier.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandCapture {
+    /// Combined stdout and stderr, truncated.
+    pub output: String,
+    /// Exit code, or `None` when the process was killed by a signal.
+    pub code: Option<i32>,
+}
+
+impl CommandCapture {
+    /// Whether the command exited successfully.
+    pub fn succeeded(&self) -> bool {
+        command_succeeded(self.code)
+    }
+}
+
+/// A command that exits 0 succeeded; anything else (including a signal) did not.
+pub fn command_succeeded(code: Option<i32>) -> bool {
+    code == Some(0)
+}
+
+/// Runs a command with a caller-supplied timeout and returns its exit code
+/// alongside the output, so a verifier can branch on success rather than
+/// scraping text.
+pub async fn run_command_capture(
+    workspace: &Path,
+    command: &str,
+    timeout: Duration,
+) -> Result<CommandCapture, String> {
+    let ws = workspace.to_path_buf();
+    let output = tokio::time::timeout(
+        timeout,
+        tokio::process::Command::new("sh")
+            .arg("-c")
+            .arg(command)
+            .current_dir(&ws)
+            .env("TERM", "dumb")
+            .env("CI", "1")
+            .output(),
+    )
+    .await
+    .map_err(|_| format!("verification command timed out after {}s", timeout.as_secs()))?
+    .map_err(|e| format!("failed to run verification command: {e}"))?;
+
+    let mut text = String::new();
+    text.push_str(&String::from_utf8_lossy(&output.stdout));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !stderr.is_empty() {
+        if !text.is_empty() && !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push_str(&stderr);
+    }
+    let code = output.status.code();
+    if text.trim().is_empty() {
+        text = format!("(no output, exit code {})", code.map_or("killed".to_string(), |c| c.to_string()));
+    }
+    Ok(CommandCapture {
+        output: truncate(&text, MAX_COMMAND_CHARS),
+        code,
+    })
 }
 
 fn truncate(text: &str, max: usize) -> String {
